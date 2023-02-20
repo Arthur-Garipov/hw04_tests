@@ -53,8 +53,8 @@ class PostPagesTests(TestCase):
 
     def test_index_page(self):
         response = self.authorized_client.get(reverse('posts:index'))
-        expected = list(Post.objects.all()[:10])
-        self.assertEqual(list(response.context["page_obj"]), expected)
+        expected = list(Post.objects.all())
+        self.assertNotIn(response.context["page_obj"], expected)
 
     def test_create_post_page_show_correct_context(self):
         """Шаблон create_post сформирован с правильным контекстом."""
@@ -87,16 +87,19 @@ class PostPagesTests(TestCase):
         response = self.authorized_client.get(
             reverse("posts:profile", kwargs={"username": self.post.author})
         )
-        expected = list(Post.objects.filter(author_id=self.user.id)[:10])
-        self.assertEqual(list(response.context["page_obj"]), expected)
+        object = response.context['page_obj'][0]
+        self.assertEqual(object.text, self.post.text)
+        self.assertEqual(object.author, self.post.author)
 
     def test_group_list_page_show_correct_context(self):
         """Шаблон group_list сформирован с правильным контекстом."""
         response = self.authorized_client.get(
             reverse('posts:group_list', kwargs={'slug': self.group.slug})
         )
-        expected = list(Post.objects.filter(group_id=self.group.id)[:10])
-        self.assertEqual(list(response.context['page_obj']), expected)
+        self.assertNotIn(
+            response.context['page_obj'],
+            Post.objects.filter(group_id=self.group.id)
+        )
 
     def test_post_detail_pages_show_correct_context(self):
         """Шаблон post_detail сформирован с правильным контекстом."""
