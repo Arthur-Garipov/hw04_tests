@@ -52,9 +52,14 @@ class PostPagesTests(TestCase):
                 self.assertTemplateUsed(response, template)
 
     def test_index_page(self):
-        response = self.authorized_client.get(reverse('posts:index'))
-        expected = list(Post.objects.all())
-        self.assertNotIn(response.context["page_obj"], expected)
+        self.authorized_client.get(reverse('posts:index'))
+        post_form = {
+            self.post.text: 'Тестовый пост',
+            self.post.group: self.group,
+            self.post.author: self.user.username
+        }
+        for value, expected in post_form.items():
+            self.assertEqual(post_form[value], expected)
 
     def test_create_post_page_show_correct_context(self):
         """Шаблон create_post сформирован с правильным контекстом."""
@@ -88,42 +93,56 @@ class PostPagesTests(TestCase):
             reverse("posts:profile", kwargs={"username": self.post.author})
         )
         object = response.context['page_obj'][0]
-        self.assertEqual(object.text, self.post.text)
-        self.assertEqual(object.author, self.post.author)
+        context_objects = {
+            self.post.author: object.author,
+            self.post.text: object.text,
+            self.group.slug: object.group.slug,
+            self.post.id: object.id,
+        }
+        for value, expected in context_objects.items():
+            with self.subTest(value=value):
+                self.assertEqual(value, expected)
 
     def test_group_list_page_show_correct_context(self):
         """Шаблон group_list сформирован с правильным контекстом."""
         response = self.authorized_client.get(
             reverse('posts:group_list', kwargs={'slug': self.group.slug})
         )
-        self.assertNotIn(
-            response.context['page_obj'],
-            Post.objects.filter(group_id=self.group.id)
-        )
+        object = response.context['page_obj'][0]
+        context_objects = {
+            object.text: 'Тестовый текст',
+            object.group: self.group,
+            response.context['group']: self.group,
+        }
+        for value, expected in context_objects.items():
+            with self.subTest(value=value):
+                self.assertEqual(value, expected)
 
     def test_post_detail_pages_show_correct_context(self):
         """Шаблон post_detail сформирован с правильным контекстом."""
         response = (self.authorized_client.get(
             reverse('posts:post_detail', kwargs={'post_id': self.post.id})))
-        self.assertEqual(response.context.get('post').text, self.post.text)
-        self.assertEqual(response.context.get('post').group, self.post.group)
+        object = Post.objects.get(id=self.post.id)
+        context_objects = {
+            response.context['post']: Post.objects.get(id=self.post.id),
+            response.context['user']: object.author,
+            self.group: object.group,
+        }
+        for value, expected in context_objects.items():
+            with self.subTest(value=value):
+                self.assertEqual(value, expected)
 
-    def test_check_group_in_pages(self):
-        """Проверяем создание поста на страницах с выбранной группой"""
+    def test_check_group_not_in_mistake_group_list_page(self):
+        """Проверяем чтобы созданный Пост с группой не попап в чужую группу."""
         form_fields = {
-            reverse("posts:index"): Post.objects.get(group=self.post.group),
             reverse(
                 "posts:group_list", kwargs={"slug": self.group.slug}
-            ): Post.objects.get(group=self.post.group),
-            reverse(
-                "posts:profile", kwargs={"username": self.post.author}
-            ): Post.objects.get(group=self.post.group),
+            ): Post.objects.exclude(group=self.post.group),
         }
         for value, expected in form_fields.items():
             with self.subTest(value=value):
                 response = self.authorized_client.get(value)
-                form_field = response.context["page_obj"]
-                self.assertIn(expected, form_field)
+                self.assertNotIn(expected, response.context["page_obj"])
 
 
 class PaginatorViewsTest(TestCase):
