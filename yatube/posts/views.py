@@ -10,8 +10,9 @@ PER_PAGE = 10
 def index(request):
     posts = Post.objects.all().order_by('-pub_date')
     template = 'posts/index.html'
+    page_obj = pagination(request, posts, PER_PAGE)
     return render(request, template, {
-        'page_obj': pagination(request, posts, PER_PAGE)}
+        'page_obj': page_obj}
     )
 
 
