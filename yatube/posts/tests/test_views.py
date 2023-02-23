@@ -30,14 +30,7 @@ class PostPagesTests(TestCase):
         self.authorized_client = Client()
         self.authorized_client.force_login(PostPagesTests.user)
 
-    def object_context(self, context):
-        page_obj = context.get('page_obj')
-        if page_obj is not None:
-            self.assertGreater(len(page_obj), 0)
-            post = page_obj[0]
-        else:
-            post = context.get('post')
-        # with self.subTest(post=post):
+    def check_the_object_context_matches(self, post):
         self.assertIsInstance(post, Post)
         self.assertEqual(post.author, self.post.author)
         self.assertEqual(post.text, self.post.text)
@@ -69,7 +62,8 @@ class PostPagesTests(TestCase):
 
     def test_index_page(self):
         response = self.authorized_client.get(reverse('posts:index'))
-        self.object_context(response.context)
+        post = response.context.get('page_obj')[0]
+        self.check_the_object_context_matches(post)
 
     def test_create_post_page_show_correct_context(self):
         """Шаблон create_post сформирован с правильным контекстом."""
@@ -102,28 +96,34 @@ class PostPagesTests(TestCase):
         response = self.authorized_client.get(
             reverse("posts:profile", kwargs={"username": self.post.author})
         )
+        post = response.context.get('page_obj')[0]
         self.assertEqual(response.context.get('author'), self.post.author)
-        self.object_context(response.context)
+        self.check_the_object_context_matches(post)
 
     def test_group_list_page_show_correct_context(self):
         """Шаблон group_list сформирован с правильным контекстом."""
         response = self.authorized_client.get(
             reverse('posts:group_list', kwargs={'slug': self.group.slug})
         )
-        self.object_context(response.context)
+        post = response.context.get('page_obj')[0]
+        self.check_the_object_context_matches(post)
         self.assertEqual(response.context.get('group'), self.group)
 
     def test_post_detail_pages_show_correct_context(self):
         """Шаблон post_detail сформирован с правильным контекстом."""
         response = (self.authorized_client.get(
             reverse('posts:post_detail', kwargs={'post_id': self.post.id})))
-        self.object_context(response.context)
+        post = response.context.get('post')
+        self.check_the_object_context_matches(post)
 
     def test_check_group_not_in_mistake_group_list_page(self):
         """Проверяем чтобы созданный Пост с группой не попап в чужую группу."""
         response = self.authorized_client.get(
-            reverse("posts:group_list", kwargs={"slug": self.group.slug}))
-        self.assertNotEqual(response.context['group'], self.other_group.slug)
+            reverse(
+                "posts:group_list", kwargs={"slug": self.other_group.slug}
+            )
+        )
+        self.assertEqual(len(response.context.get('page_obj')), 0)
 
 
 class PaginatorViewsTest(TestCase):
